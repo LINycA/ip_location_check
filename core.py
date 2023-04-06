@@ -1,8 +1,9 @@
 import sys
 import traceback
+import time
 
 import re
-import threading
+from threading import Thread
 
 import requests
 
@@ -42,10 +43,26 @@ class ip_check_core(Ui_MainWindow):
         else:
             return url
 
+    def request_info(self,url):
+        return requests.get(url=url,headers=self.headers,timeout=3)
 
-    def check_ip(self):
-        request_info = lambda url:requests.get(url=url,headers=self.headers)
+
+    def check_ip(self,url:str):
         # 检测ip地址格式是否错误
+        try:
+            res = self.request_info(url=url).json()
+            ip = res.get('data')[0].get('origip')
+            lo = res.get('data')[0].get('location')
+            self.textBrowser.append(ip+' | '+lo)
+            self.pushButton.setEnabled(True)
+            # self.textBrowser.append(res.text)
+        except Exception as error_msg:
+            self.pushButton.setEnabled(True)
+            self.textBrowser.append(str(error_msg))
+
+    def btn_event(self):
+        self.textBrowser.clear()
+        self.pushButton.setEnabled(False)
         def check_ip_value(ip:str):
             if len(re.findall(r'\.',ip)) < 3 or len(re.findall(r'\.',ip)) > 3:
                 return True
@@ -61,25 +78,11 @@ class ip_check_core(Ui_MainWindow):
         if check_ip_value(ip=ip_value):
             self.textBrowser.append('ip地址错误')
         else:
-            try:
-                url = self.api_url.replace('ip_addr',ip_value)
-                res = request_info(url=url).json()
-                for i in res:
-                    va = res[i]
-                    if type(va) is dict:
-                        res1 = ' | '.join([i for i in va.values()])
-                        self.textBrowser.append(res1)
-                    else:
-                        self.textBrowser.append(str(i)+' : '+str(va))
-                # self.textBrowser.append(res.text)
-            except Exception as error_msg:
-                self.textBrowser.append(str(error_msg))
+            url = self.api_url.replace('ip_addr',ip_value)
+            p = Thread(target=self.check_ip,args=(url,))
+            p.start()
+            # p.join()
 
-    def btn_event(self):
-        self.textBrowser.clear()
-        p = threading.Thread(target=self.check_ip)
-        p.start()
-        p.join()
         
 
 
